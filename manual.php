@@ -454,7 +454,9 @@ class TableRenderer
     {
         $changes = $this->sortRows($changes);
 
-        $getValue = $this->differ->grouper->makePlanGrouper();
+        $getValue = function (Row $row) {
+            return $row->data[$this->differ->grouper->bsn];
+        };
         $prevVal = null;
 
         $html = '';
