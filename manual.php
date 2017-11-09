@@ -45,20 +45,6 @@ class Differ
         }, []);
     }
 
-    /** @return Row[] */
-    public function sortRows(array $rows)
-    {
-        usort($rows, function (Row $a, Row $b) {
-            if ($a->bsn !== $b->bsn) {
-                return strcmp($a->bsn, $b->bsn);
-            }
-
-            return 0;
-        });
-
-        return $rows;
-    }
-
     protected function fetchHeaders()
     {
         $this->oldHeader = $this->header($this->oldFp);
@@ -321,7 +307,6 @@ class PlanDiff
 Differ::setBsnSchoolStart(9, 6, 25);
 $differ = new Differ('11-02-orig.csv', '11-07-orig.csv');
 $changes = $differ->getChanges();
-$changes = $differ->sortRows($changes);
 
 class TableRenderer
 {
@@ -333,7 +318,7 @@ class TableRenderer
     }
 
     /** @return string */
-    public function cols($type, $first, $second, array $line, array $hilite = [])
+    protected function cols($type, $first, $second, array $line, array $hilite = [])
     {
         $html = '';
         $html .= "<tr>";
@@ -348,7 +333,7 @@ class TableRenderer
     }
 
     /** @return string */
-    public function row(RowChange $row)
+    protected function row(RowChange $row)
     {
         return $this->cols('td', $row->type, implode(', ', $row->getChangedCols()), $row->data, $row->getChangedCols());
     }
@@ -356,6 +341,8 @@ class TableRenderer
     /** @return string */
     public function table(array $changes)
     {
+        $changes = $this->sortRows($changes);
+
         $html = '';
         $html .= '<table border="1">';
         $html .= $this->cols('th', '', '', $this->differ->oldHeader);
@@ -369,6 +356,20 @@ class TableRenderer
         }
         $html .= '</table>';
         return $html;
+    }
+
+    /** @return RowChange[] */
+    protected function sortRows(array $rows)
+    {
+        usort($rows, function (Row $a, Row $b) {
+            if ($a->bsn !== $b->bsn) {
+                return strcmp($a->bsn, $b->bsn);
+            }
+
+            return 0;
+        });
+
+        return $rows;
     }
 }
 
