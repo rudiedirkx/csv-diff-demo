@@ -1,14 +1,11 @@
 <?php
 
-const CSV_BEFORE = '11-02-orig.csv';
-const CSV_AFTER = '11-07-orig.csv';
-
-const COL_BSN = 9;
-const COL_SCHOOL = 6;
-const COL_START = 25;
-
 class Differ
 {
+    static public $colBsn = -1;
+    static public $colSchool = -1;
+    static public $colStart = -1;
+
     public $oldFp;
     public $newFp;
 
@@ -54,10 +51,6 @@ class Differ
         usort($rows, function (Row $a, Row $b) {
             if ($a->bsn !== $b->bsn) {
                 return strcmp($a->bsn, $b->bsn);
-            }
-
-            if ($a->weight !== $b->weight) {
-                return $a->weight - $b->weight;
             }
 
             return 0;
@@ -122,6 +115,13 @@ class Differ
         return new Row(json_decode($line, true));
     }
 
+    static public function setBsnSchoolStart($colBsn, $colSchool, $colStart)
+    {
+        static::$colBsn = $colBsn;
+        static::$colSchool = $colSchool;
+        static::$colStart = $colStart;
+    }
+
     /** @return Row[][][] */
     static public function groupRowsBy(array $removed, array $added, $col)
     {
@@ -148,8 +148,9 @@ class Row
 {
     public $data = [];
 
-    public $weight = 0;
-
+    /**
+     * @param array $data
+     */
     public function __construct(array $data)
     {
         $this->data = $data;
@@ -163,20 +164,14 @@ class Row
         }, ARRAY_FILTER_USE_BOTH));
     }
 
-    /** @return int[] */
-    public function getChangedCols()
-    {
-        return [];
-    }
-
     protected function get_bsn()
     {
-        return $this->data[COL_BSN];
+        return $this->data[Differ::$colBsn];
     }
 
     protected function get_school()
     {
-        return $this->data[COL_SCHOOL];
+        return $this->data[Differ::$colSchool];
     }
 
     protected function get_bsn_school()
@@ -186,7 +181,7 @@ class Row
 
     protected function get_start()
     {
-        return $this->data[COL_START];
+        return $this->data[Differ::$colStart];
     }
 
     public function __get($name)
@@ -195,25 +190,21 @@ class Row
     }
 }
 
-class AddedRow extends Row
+class RowChange extends Row
 {
-    public $weight = 2;
-}
-
-class RemovedRow extends Row
-{
-    public $weight = 0;
-}
-
-class ChangedRow extends Row
-{
-    public $weight = 1;
-
+    public $type = '';
     public $changes = [];
 
-    public function __construct(array $data, array $changes)
+    /**
+     * @param string $type
+     * @param array $data
+     * @param array $changes
+     */
+    public function __construct($type, array $data, array $changes = [])
     {
         parent::__construct($data);
+
+        $this->type = $type;
         $this->changes = $changes;
     }
 
@@ -242,13 +233,13 @@ class PlanDiff
     {
         if ($this->isAddition()) {
             return array_map(function (Row $row) {
-                return new AddedRow($row->data);
+                return new RowChange('added', $row->data);
             }, $this->new);
         }
 
         if ($this->isRemoval()) {
             return array_map(function (Row $row) {
-                return new RemovedRow($row->data);
+                return new RowChange('removed', $row->data);
             }, $this->old);
         }
 
@@ -259,7 +250,7 @@ class PlanDiff
             $changes = [];
             foreach ($this->new as $i => $newRow) {
                 $oldRow = $this->old[$i];
-                $changes[] = new ChangedRow($newRow->data, $newRow->diff($oldRow));
+                $changes[] = new RowChange('changed', $newRow->data, $newRow->diff($oldRow));
             }
             return $changes;
         }
@@ -277,17 +268,17 @@ class PlanDiff
 
             $changes = [];
             for ($i = 0; $i < $both; $i++) {
-                $changes[] = new ChangedRow($this->new[$i]->data, $this->new[$i]->diff($this->old[$i]));
+                $changes[] = new RowChange('changed', $this->new[$i]->data, $this->new[$i]->diff($this->old[$i]));
             }
 
             if (count($this->old) > count($this->new)) {
                 foreach (array_slice($this->old, $both) as $row) {
-                    $changes[] = new RemovedRow($row->data);
+                    $changes[] = new RowChange('removed', $row->data);
                 }
             }
             else {
                 foreach (array_slice($this->new, $both) as $row) {
-                    $changes[] = new AddedRow($row->data);
+                    $changes[] = new RowChange('added', $row->data);
                 }
             }
 
@@ -327,7 +318,8 @@ class PlanDiff
     }
 }
 
-$differ = new Differ(CSV_BEFORE, CSV_AFTER);
+Differ::setBsnSchoolStart(9, 6, 25);
+$differ = new Differ('11-02-orig.csv', '11-07-orig.csv');
 $changes = $differ->getChanges();
 $changes = $differ->sortRows($changes);
 
@@ -356,9 +348,9 @@ class TableRenderer
     }
 
     /** @return string */
-    public function row(Row $row)
+    public function row(RowChange $row)
     {
-        return $this->cols('td', get_class($row), implode(', ', $row->getChangedCols()), $row->data, $row->getChangedCols());
+        return $this->cols('td', $row->type, implode(', ', $row->getChangedCols()), $row->data, $row->getChangedCols());
     }
 
     /** @return string */
