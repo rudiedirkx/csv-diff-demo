@@ -2,18 +2,46 @@
 
 class Differ
 {
-    /** @var VervoersplanGrouper */
+    /**
+     * @var VervoersplanGrouper
+     */
     public $grouper;
 
+    /**
+     * @var resource
+     */
     public $oldFp;
+
+    /**
+     * @var resource
+     */
     public $newFp;
 
+    /**
+     * @var string[]
+     */
     public $oldHeader = [];
+
+    /**
+     * @var string[]
+     */
     public $newHeader = [];
 
+    /**
+     * @var Row[]
+     */
     public $removedRows = [];
+
+    /**
+     * @var Row[]
+     */
     public $addedRows = [];
 
+    /**
+     * @param string              $oldFile
+     * @param string              $newFile
+     * @param VervoersplanGrouper $grouper
+     */
     public function __construct($oldFile, $newFile, VervoersplanGrouper $grouper)
     {
         $this->grouper = $grouper;
@@ -26,7 +54,9 @@ class Differ
         $this->closePointers();
     }
 
-    /** @return PlanDiff[] */
+    /**
+     * @return PlanDiff[]
+     */
     public function getPlans()
     {
         $grouped = self::groupRowsBy($this->removedRows, $this->addedRows, $this->grouper->makePlanGrouper());
@@ -36,7 +66,9 @@ class Differ
         }, $grouped);
     }
 
-    /** @return Row[] */
+    /**
+     * @return Row[]
+     */
     public function getChanges()
     {
         $plans = $this->getPlans();
@@ -46,6 +78,9 @@ class Differ
         }, []);
     }
 
+    /**
+     * @return void
+     */
     protected function fetchHeaders()
     {
         $this->oldHeader = $this->header($this->oldFp);
@@ -56,6 +91,9 @@ class Differ
         }
     }
 
+    /**
+     * @return void
+     */
     protected function fetchRows()
     {
         $oldRows = $this->lines($this->oldFp);
@@ -68,13 +106,19 @@ class Differ
         $this->removedRows = array_map([$this, 'str2row'], $removedRows);
     }
 
-    /** @return array */
+    /**
+     * @param resource $fp
+     * @return array
+     */
     protected function header($fp)
     {
         return fgetcsv($fp, 0, ';');
     }
 
-    /** @return string[] */
+    /**
+     * @param resource $fp
+     * @return string[]
+     */
     protected function lines($fp)
     {
         $lines = [];
@@ -89,6 +133,9 @@ class Differ
         return $lines;
     }
 
+    /**
+     * @return void
+     */
     protected function closePointers()
     {
         fclose($this->oldFp);
@@ -96,14 +143,22 @@ class Differ
         $this->oldFp = $this->newFp = null;
     }
 
-    /** @return Row */
+    /**
+     * @param $line
+     * @return Row
+     */
     protected function str2row($line)
     {
         return new Row(json_decode($line, true));
     }
 
-    /** @return Row[][][] */
-    static public function groupRowsBy(array $removed, array $added, closure $getValue)
+    /**
+     * @param Row[]    $removed
+     * @param Row[]    $added
+     * @param callable $getValue
+     * @return Row[][][]
+     */
+    static public function groupRowsBy(array $removed, array $added, callable $getValue)
     {
         $grouped = [];
         foreach (['-' => $removed, '+' => $added] as $change => $rows) {
@@ -124,6 +179,11 @@ class VervoersplanGrouper
     public $school = -1;
     public $start = -1;
 
+    /**
+     * @param int $bsn
+     * @param int $school
+     * @param int $start
+     */
     public function __construct($bsn, $school, $start)
     {
         $this->bsn = $bsn;
@@ -131,6 +191,9 @@ class VervoersplanGrouper
         $this->start = $start;
     }
 
+    /**
+     * @return Closure
+     */
     public function makePlanGrouper()
     {
         return function (Row $row) {
@@ -138,6 +201,9 @@ class VervoersplanGrouper
         };
     }
 
+    /**
+     * @return Closure
+     */
     public function makeSorter()
     {
         return function (Row $row) {
@@ -145,6 +211,9 @@ class VervoersplanGrouper
         };
     }
 
+    /**
+     * @return Closure
+     */
     public function makeSubGrouper()
     {
         return function (Row $row) {
@@ -155,6 +224,9 @@ class VervoersplanGrouper
 
 class Row
 {
+    /**
+     * @var array
+     */
     public $data = [];
 
     /**
@@ -165,7 +237,10 @@ class Row
         $this->data = $data;
     }
 
-    /** @return int[] */
+    /**
+     * @param Row $other
+     * @return int[]
+     */
     public function diff(Row $other)
     {
         return array_keys(array_filter($other->data, function ($value, $col) {
@@ -176,13 +251,20 @@ class Row
 
 class RowChange extends Row
 {
+    /**
+     * @var string
+     */
     public $type = '';
+
+    /**
+     * @var int[]
+     */
     public $changes = [];
 
     /**
      * @param string $type
-     * @param array $data
-     * @param array $changes
+     * @param array  $data
+     * @param array  $changes
      */
     public function __construct($type, array $data, array $changes = [])
     {
@@ -192,7 +274,9 @@ class RowChange extends Row
         $this->changes = $changes;
     }
 
-    /** @return int[] */
+    /**
+     * @return int[]
+     */
     public function getChangedCols()
     {
         return $this->changes;
@@ -201,14 +285,25 @@ class RowChange extends Row
 
 class PlanDiff
 {
-    /** @var VervoersplanGrouper */
+    /**
+     * @var VervoersplanGrouper
+     */
     public $grouper;
 
-    /** @var Row[] */
+    /**
+     * @var Row[]
+     */
     public $old = [];
-    /** @var Row[] */
+
+    /**
+     * @var Row[]
+     */
     public $new = [];
 
+    /**
+     * @param array               $diff
+     * @param VervoersplanGrouper $grouper
+     */
     public function __construct($diff, VervoersplanGrouper $grouper)
     {
         $this->grouper = $grouper;
@@ -217,7 +312,10 @@ class PlanDiff
         isset($diff['+']) and $this->new = array_values($diff['+']);
     }
 
-    /** @return Row[] */
+    /**
+     * @param string $step
+     * @return Row[]
+     */
     public function getChanges($step = 'outer')
     {
         if ($this->isAddition()) {
@@ -233,8 +331,8 @@ class PlanDiff
         }
 
         $getValue = $this->grouper->makeSorter();
-        $this->sort($this->old, $getValue);
-        $this->sort($this->new, $getValue);
+        $this->old = $this->sort($this->old, $getValue);
+        $this->new = $this->sort($this->new, $getValue);
 
         if (count($this->old) == count($this->new)) {
             $changes = [];
@@ -278,14 +376,23 @@ class PlanDiff
         throw new InvalidArgumentException("No resolution found.");
     }
 
-    protected function sort(array &$rows, closure $getValue)
+    /**
+     * @param Row[]    $rows
+     * @param callable $getValue
+     * @return Row[]
+     */
+    protected function sort(array $rows, callable $getValue)
     {
         usort($rows, function (Row $a, Row $b) use ($getValue) {
             return strcmp($getValue($a), $getValue($b));
         });
+
+        return $rows;
     }
 
-    /** @return PlanDiff[] */
+    /**
+     * @return PlanDiff[]
+     */
     protected function groupByStart()
     {
         $grouped = Differ::groupRowsBy($this->old, $this->new, $this->grouper->makeSubGrouper());
@@ -295,13 +402,17 @@ class PlanDiff
         }, $grouped);
     }
 
-    /** @return bool */
+    /**
+     * @return bool
+     */
     protected function isAddition()
     {
         return $this->new && !$this->old;
     }
 
-    /** @return bool */
+    /**
+     * @return bool
+     */
     protected function isRemoval()
     {
         return $this->old && !$this->new;
@@ -320,7 +431,6 @@ class TableRenderer
         $this->differ = $differ;
     }
 
-    /** @return string */
     protected function cols($type, $first, $second, array $line, array $hilite = [])
     {
         $html = '';
@@ -335,24 +445,21 @@ class TableRenderer
         return $html;
     }
 
-    /** @return string */
     protected function row(RowChange $row)
     {
         return $this->cols('td', $row->type, implode(', ', $row->getChangedCols()), $row->data, $row->getChangedCols());
     }
 
-    /** @return string */
     public function table(array $changes)
     {
         $changes = $this->sortRows($changes);
 
         $getValue = $this->differ->grouper->makePlanGrouper();
+        $prevVal = null;
 
         $html = '';
         $html .= '<table border="1">';
         $html .= $this->cols('th', '', '', $this->differ->oldHeader);
-
-        $prevVal = null;
         foreach ($changes as $row) {
             $newVal = $getValue($row);
             if ($prevVal && $prevVal !== $newVal) {
@@ -365,7 +472,6 @@ class TableRenderer
         return $html;
     }
 
-    /** @return RowChange[] */
     protected function sortRows(array $rows)
     {
         $getValue = $this->differ->grouper->makePlanGrouper();
