@@ -1,0 +1,13 @@
+{
+    "name": "prone/vplandiff",
+    "type": "project",
+    "require": {
+        "phpspec/php-diff": "^1.1"
+    },
+    "authors": [
+        {
+            "name": "Rudie Dirkx",
+            "email": "rdirkx@pronexus.nl"
+        }
+    ]
+}
