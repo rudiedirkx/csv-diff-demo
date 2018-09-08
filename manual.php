@@ -8,6 +8,11 @@ class Differ
     public $grouper;
 
     /**
+     * @var string
+     */
+    public $delimiter;
+
+    /**
      * @var resource
      */
     public $oldFp;
@@ -40,11 +45,13 @@ class Differ
     /**
      * @param string              $oldFile
      * @param string              $newFile
+     * @param string              $delimiter
      * @param VervoersplanGrouper $grouper
      */
-    public function __construct($oldFile, $newFile, VervoersplanGrouper $grouper)
+    public function __construct($oldFile, $newFile, $delimiter, VervoersplanGrouper $grouper)
     {
         $this->grouper = $grouper;
+        $this->delimiter = $delimiter;
 
         $this->oldFp = fopen($oldFile, 'r');
         $this->newFp = fopen($newFile, 'r');
@@ -112,7 +119,7 @@ class Differ
      */
     protected function header($fp)
     {
-        return fgetcsv($fp, 0, ';');
+        return fgetcsv($fp, 0, $this->delimiter);
     }
 
     /**
@@ -122,7 +129,7 @@ class Differ
     protected function lines($fp)
     {
         $lines = [];
-        while ($data = fgetcsv($fp, 0, ';')) {
+        while ($data = fgetcsv($fp, 0, $this->delimiter)) {
             $lines[] = $data;
         }
 
@@ -419,8 +426,18 @@ class PlanDiff
     }
 }
 
-$differ = new Differ('11-02-orig.csv', '11-07-orig.csv', new VervoersplanGrouper(9, 6, 25));
+$left = $_GET['left'] ?? $_SERVER['argv'][1] ?? null;
+$right = $_GET['right'] ?? $_SERVER['argv'][2] ?? null;
+if ( !$left || !$right ) {
+    exit("Need files\n");
+}
+$differ = new Differ($left, $right, ',', new VervoersplanGrouper(1, 2, 3));
 $changes = $differ->getChanges();
+
+if ( php_sapi_name() == 'cli' ) {
+    print_r($changes);
+    exit;
+}
 
 class TableRenderer
 {
